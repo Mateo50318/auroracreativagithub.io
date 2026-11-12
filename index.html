@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURORA CREATIVA — Flores Artesanales</title>
+    
+    <!-- Tipografías modernas: Space Grotesk + Inter con respaldo instantáneo del sistema -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* Regla estricta: 0px border-radius en absolutamente todos los elementos */
+        *, *::before, *::after {
+            border-radius: 0px !important;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #FFFFFF;
+            color: #000000;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        /* Fondo de cuadrícula sutil para el respaldo cuando aún no cargó la foto local */
+        .placeholder-grid {
+            background-color: #F4F4F4;
+            background-image: 
+                linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Botones cuadrados con transición limpia */
+        .btn-square {
+            transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-white text-black selection:bg-black selection:text-white">
+
+    <!-- Notificación flotante cuadrada -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden bg-black text-white border border-black px-5 py-3 text-xs font-mono uppercase tracking-widest shadow-none">
+        ACTUALIZADO
+    </div>
+
+    <!-- Modal de Acceso Vendedor (PIN: 2010) -->
+    <div id="pin-modal" class="fixed inset-0 bg-black/75 z-40 hidden items-center justify-center p-4">
+        <div class="bg-white border border-black w-full max-w-sm p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <p class="text-[10px] font-mono uppercase tracking-[0.25em] text-neutral-500 mb-1">ÁREA PRIVADA</p>
+                    <h2 class="text-xl font-bold tracking-tight uppercase">Acceso Vendedor</h2>
+                </div>
+                <button type="button" onclick="closePinModal()" class="w-8 h-8 border border-black flex items-center justify-center hover:bg-black hover:text-white btn-square text-sm font-mono" aria-label="Cerrar">
+                    ✕
+                </button>
+            </div>
+            
+            <form id="pin-form" onsubmit="verifyPin(event)" class="space-y-4">
+                <div>
+                    <label for="pin-input" class="block text-xs uppercase tracking-widest mb-2">Código de acceso</label>
+                    <input 
+                        type="password" 
+                        id="pin-input" 
+                        maxlength="6"
+                        class="w-full border border-black px-4 py-3 text-center font-mono text-lg tracking-[0.5em] focus:outline-none focus:bg-[#F4F4F4]"
+                        autocomplete="off"
+                    >
+                </div>
+                
+                <p id="pin-error" class="text-xs bg-black text-white px-3 py-2 hidden font-mono">
+                    CÓDIGO INCORRECTO.
+                </p>
+
+                <div class="pt-2 flex gap-3">
+                    <button type="button" onclick="closePinModal()" class="flex-1 border border-black py-3 text-xs uppercase tracking-widest hover:bg-[#F4F4F4] btn-square">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 bg-black text-white border border-black py-3 text-xs uppercase tracking-widest hover:bg-white hover:text-black btn-square">
+                        Ingresar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Agregar Nueva Especie -->
+    <div id="add-modal" class="fixed inset-0 bg-black/75 z-40 hidden items-center justify-center p-4">
+        <div class="bg-white border border-black w-full max-w-md p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <p class="text-[10px] font-mono uppercase tracking-[0.25em] text-neutral-500 mb-1">INVENTARIO</p>
+                    <h2 class="text-xl font-bold tracking-tight uppercase">Nueva Especie</h2>
+                </div>
+                <button type="button" onclick="closeAddModal()" class="w-8 h-8 border border-black flex items-center justify-center hover:bg-black hover:text-white btn-square text-sm font-mono" aria-label="Cerrar">
+                    ✕
+                </button>
+            </div>
+
+            <form id="add-product-form" onsubmit="handleAddProduct(event)" class="space-y-4">
+                <div>
+                    <label for="new-name" class="block text-xs uppercase tracking-widest mb-1.5">Nombre de la especie</label>
+                    <input type="text" id="new-name" required placeholder="Ej: Orquídea Blanca" class="w-full border border-black px-3 py-2.5 text-sm focus:outline-none focus:bg-[#F4F4F4]">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="new-price" class="block text-xs uppercase tracking-widest mb-1.5">Precio (Ej: $6.500)</label>
+                        <input type="text" id="new-price" required placeholder="$6.500" class="w-full border border-black px-3 py-2.5 text-sm font-mono focus:outline-none focus:bg-[#F4F4F4]">
+                    </div>
+                    <div>
+                        <label for="new-size" class="block text-xs uppercase tracking-widest mb-1.5">Tamaño</label>
+                        <select id="new-size" class="w-full border border-black px-3 py-2.5 text-sm bg-white focus:outline-none">
+                            <option value="chica">Chica ($5k–$7k)</option>
+                            <option value="grande">Grande ($12k–$15k)</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="new-image" class="block text-xs uppercase tracking-widest mb-1.5">Ruta imagen (GitHub Pages)</label>
+                    <input type="text" id="new-image" required placeholder="img/orquidea.jpeg" class="w-full border border-black px-3 py-2.5 text-sm font-mono focus:outline-none focus:bg-[#F4F4F4]">
+                </div>
+
+                <div class="pt-3 flex gap-3">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 border border-black py-3 text-xs uppercase tracking-widest hover:bg-[#F4F4F4] btn-square">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 bg-black text-white border border-black py-3 text-xs uppercase tracking-widest hover:bg-white hover:text-black btn-square">
+                        Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ENCABEZADO MINIMALISTA -->
+    <header class="border-b border-black bg-white sticky top-0 z-30">
+        <div class="max-w-6xl mx-auto px-4 sm:px-8 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <a href="#catalogo" onclick="switchView('client'); return false;" class="inline-block">
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-[0.16em] uppercase leading-none">
+                        AURORA CREATIVA
+                    </h1>
+                </a>
+                <p class="text-[11px] uppercase tracking-[0.22em] text-neutral-600 mt-1.5">
+                    Flores Artesanales en Limpiapipas
+                </p>
+            </div>
+
+            <!-- Botones cuadrados de navegación -->
+            <div class="flex items-center gap-2">
+                <button type="button" id="btn-nav-client" onclick="switchView('client')" class="border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-black text-white btn-square">
+                    CATÁLOGO
+                </button>
+                <button type="button" id="btn-nav-seller" onclick="openSellerAccess()" class="border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-white text-black hover:bg-black hover:text-white btn-square">
+                    ACCESO VENDEDOR
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-10 sm:py-14">
+
+        <!-- ========================================================= -->
+        <!-- VISTA 1: CATÁLOGO (INTERFAZ DEL CLIENTE)                  -->
+        <!-- ========================================================= -->
+        <section id="client-view" class="block">
+            <!-- Barra superior minimalista con filtros cuadrados -->
+            <div class="border-b border-black pb-5 mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h2 class="text-xs font-mono uppercase tracking-[0.25em] font-semibold">
+                    CATÁLOGO DE ESPECIES
+                </h2>
+                <div class="flex flex-wrap gap-2" role="group" aria-label="Filtrar por tamaño">
+                    <button type="button" id="filter-todos" onclick="setFilter('todos')" class="border border-black px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider bg-black text-white btn-square">
+                        TODOS
+                    </button>
+                    <button type="button" id="filter-chica" onclick="setFilter('chica')" class="border border-black px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider bg-white text-black hover:bg-[#F4F4F4] btn-square">
+                        CHICAS ($5k-$7k)
+                    </button>
+                    <button type="button" id="filter-grande" onclick="setFilter('grande')" class="border border-black px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider bg-white text-black hover:bg-[#F4F4F4] btn-square">
+                        GRANDES ($12k-$15k)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cuadrícula limpia: SOLO Foto, Nombre de Especie y Precio -->
+            <div id="catalog-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+                <!-- Productos renderizados dinámicamente -->
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- VISTA 2: PANEL DEL VENDEDOR (CONTROL DE STOCK Y RUTAS)    -->
+        <!-- ========================================================= -->
+        <section id="seller-view" class="hidden">
+            <div class="border border-black p-6 sm:p-8 mb-8 bg-[#F4F4F4]">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div>
+                        <span class="inline-block bg-black text-white text-[10px] font-mono uppercase tracking-[0.25em] px-2.5 py-1 mb-2">
+                            PANEL DE GESTIÓN
+                        </span>
+                        <h2 class="text-2xl font-bold uppercase tracking-tight">Control de Stock &amp; Catálogo</h2>
+                        <p class="text-xs text-neutral-700 mt-1.5 max-w-xl leading-relaxed">
+                            Marcá qué flores están <strong>EN STOCK</strong> o <strong>SIN STOCK</strong>, editá precios o rutas de imagen, y tocá <strong>DESCARGAR INDEX.HTML ACTUALIZADO</strong> para subir los cambios permanentes a GitHub Pages.
+                        </p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" onclick="openAddModal()" class="border border-black px-4 py-3 text-xs font-mono uppercase tracking-widest bg-white text-black hover:bg-black hover:text-white btn-square">
+                            + NUEVA ESPECIE
+                        </button>
+                        <button type="button" onclick="downloadHtmlFile()" class="border border-black px-5 py-3 text-xs font-mono uppercase tracking-widest bg-black text-white hover:bg-white hover:text-black btn-square">
+                            DESCARGAR INDEX.HTML ACTUALIZADO
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen rápido de inventario -->
+            <div class="grid grid-cols-3 border border-black mb-8 divide-x divide-black text-center bg-white">
+                <div class="p-4">
+                    <span class="block text-[10px] font-mono uppercase tracking-widest text-neutral-600">TOTAL</span>
+                    <span id="stat-total" class="text-2xl font-display font-bold mt-1 block">0</span>
+                </div>
+                <div class="p-4">
+                    <span class="block text-[10px] font-mono uppercase tracking-widest text-neutral-600">EN STOCK</span>
+                    <span id="stat-available" class="text-2xl font-display font-bold mt-1 block">0</span>
+                </div>
+                <div class="p-4">
+                    <span class="block text-[10px] font-mono uppercase tracking-widest text-neutral-600">SIN STOCK</span>
+                    <span id="stat-out" class="text-2xl font-display font-bold mt-1 block">0</span>
+                </div>
+            </div>
+
+            <!-- Listado editable de productos -->
+            <div class="border border-black divide-y divide-black bg-white" id="seller-list">
+                <!-- Filas de gestión renderizadas dinámicamente -->
+            </div>
+
+            <div class="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t border-black">
+                <button type="button" onclick="resetDefaultCatalog()" class="text-xs font-mono uppercase tracking-widest text-neutral-600 hover:text-black underline underline-offset-4">
+                    Restaurar catálogo original
+                </button>
+                <button type="button" onclick="switchView('client')" class="w-full sm:w-auto border border-black px-6 py-3 text-xs font-mono uppercase tracking-widest bg-black text-white hover:bg-white hover:text-black btn-square">
+                    ← VOLVER AL CATÁLOGO
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- PIE DE PÁGINA SOBRIO -->
+    <footer class="border-t border-black bg-white mt-12">
+        <div class="max-w-6xl mx-auto px-4 sm:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <div class="flex items-center gap-3">
+                <span class="font-display font-bold uppercase tracking-widest">AURORA CREATIVA</span>
+                <span class="text-neutral-400">/</span>
+                <span class="text-neutral-600">Botánica artesanal en limpiapipas</span>
+            </div>
+            <button type="button" onclick="openSellerAccess()" class="border border-black px-3.5 py-2 text-[10px] font-mono uppercase tracking-widest hover:bg-black hover:text-white btn-square">
+                ACCESO VENDEDOR
+            </button>
+        </div>
+    </footer>
+
+    <!-- LÓGICA DE APLICACIÓN 100% AUTÓNOMA Y SIN DEPENDENCIAS EXTERNAS -->
+    <script>
+        // =========================================================================
+        // 1. DATOS DEL CATÁLOGO (SE ACTUALIZA AUTOMÁTICAMENTE AL EXPORTAR)
+        // =========================================================================
+        const DEFAULT_PRODUCTS = [
+            {
+                id: 'prod-1',
+                name: 'Lirio Asiático Grande',
+                price: '$14.000',
+                category: 'grande',
+                image: 'img/lirio-mas-grande.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-2',
+                name: 'Hibisco Naranja',
+                price: '$6.500',
+                category: 'chica',
+                image: 'img/flor-de-foto-2.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-3',
+                name: 'Rosa Fucsia',
+                price: '$6.000',
+                category: 'chica',
+                image: 'img/Rosa.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-4',
+                name: 'Ramo Girasol Rosa',
+                price: '$15.000',
+                category: 'grande',
+                image: 'img/girasol-ramo-rosa.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-5',
+                name: 'Ramo Girasol Violeta',
+                price: '$15.000',
+                category: 'grande',
+                image: 'img/girasol-ramo-violeta.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-6',
+                name: 'Lirio Rojo',
+                price: '$12.500',
+                category: 'grande',
+                image: 'img/lirio-rojo.jpeg',
+                inStock: true
+            },
+            {
+                id: 'prod-7',
+                name: 'Hibisco Blanco',
+                price: '$7.000',
+                category: 'chica',
+                image: 'img/hibisco.jpeg',
+                inStock: true
+            }
+        ];
+
+        const STORAGE_KEY = 'aurora_creativa_catalogo_v3';
+        const SELLER_PIN = '2010';
+
+        let products = [];
+        let isSellerAuthenticated = false;
+        let currentView = 'client';
+        let activeFilter = 'todos';
+
+        // =========================================================================
+        // 2. CARGA Y GUARDADO LOCAL (CON RESPALDO SEGURO)
+        // =========================================================================
+        function loadProducts() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed;
+                    }
+                }
+            } catch (err) {
+                // Si localStorage está bloqueado en modo file://, usa DEFAULT_PRODUCTS sin fallar
+            }
+            return JSON.parse(JSON.stringify(DEFAULT_PRODUCTS));
+        }
+
+        function saveProducts(updatedList) {
+            products = updatedList;
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
+            } catch (err) {
+                // Ignorar si el navegador restringe localStorage en local
+            }
+            renderAll();
+        }
+
+        // =========================================================================
+        // 3. MANEJO DE IMÁGENES (PRUEBA 'img/archivo.jpeg', LUEGO 'archivo.jpeg', LUEGO SVG)
+        // =========================================================================
+        function handleImageError(imgEl) {
+            const currentSrc = imgEl.getAttribute('src') || '';
+            if (currentSrc.startsWith('img/') && !imgEl.dataset.triedRoot) {
+                imgEl.dataset.triedRoot = 'true';
+                imgEl.src = currentSrc.replace(/^img\//, '');
+                return;
+            }
+            // Ocultar etiqueta <img> para dejar visible el placeholder geométrico SVG
+            imgEl.style.display = 'none';
+        }
+
+        function handleImageLoad(imgEl, isOut) {
+            imgEl.style.opacity = isOut ? '0.45' : '1';
+            const placeholder = imgEl.previousElementSibling;
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
+        }
+
+        // =========================================================================
+        // 4. RENDERIZADO DE VISTA CLIENTE (CATÁLOGO MINIMALISTA)
+        // =========================================================================
+        function setFilter(filterValue) {
+            activeFilter = filterValue;
+            ['todos', 'chica', 'grande'].forEach((key) => {
+                const btn = document.getElementById('filter-' + key);
+                if (!btn) return;
+                if (key === filterValue) {
+                    btn.className = 'border border-black px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider bg-black text-white btn-square';
+                } else {
+                    btn.className = 'border border-black px-3.5 py-2 text-[11px] font-mono uppercase tracking-wider bg-white text-black hover:bg-[#F4F4F4] btn-square';
+                }
+            });
+            renderClientCatalog();
+        }
+
+        function renderClientCatalog() {
+            const grid = document.getElementById('catalog-grid');
+            if (!grid) return;
+
+            const filtered = products.filter((item) => {
+                if (activeFilter === 'todos') return true;
+                return item.category === activeFilter;
+            });
+
+            grid.innerHTML = filtered.map((product) => {
+                const isOut = !product.inStock;
+                return `
+                    <article class="group flex flex-col bg-white">
+                        <!-- Marco cuadrado de fotografía -->
+                        <div class="relative aspect-[4/5] w-full border border-black overflow-hidden bg-[#F4F4F4]">
+                            
+                            <!-- Placeholder geométrico SVG blanco y negro si la foto aún no está en la carpeta -->
+                            <div class="placeholder-grid absolute inset-0 flex flex-col items-center justify-center p-6 text-center select-none">
+                                <div class="w-12 h-12 border border-black flex items-center justify-center mb-4 bg-white">
+                                    <svg class="w-6 h-6 stroke-black" viewBox="0 0 24 24" fill="none" stroke-width="1.25">
+                                        <circle cx="12" cy="12" r="3"/>
+                                        <path d="M12 2v4M12 18v4M2 12h4M18 12h4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M19.07 4.93l-2.83 2.83M7.76 16.24l-2.83 2.83"/>
+                                    </svg>
+                                </div>
+                                <span class="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-600 mb-1.5">
+                                    IMAGEN PENDIENTE
+                                </span>
+                                <code class="text-[11px] font-mono bg-white border border-black px-2.5 py-1 text-black break-all">
+                                    ${escapeHtml(product.image)}
+                                </code>
+                            </div>
+
+                            <!-- Fotografía real del producto -->
+                            <img 
+                                src="${escapeHtml(product.image)}" 
+                                alt="${escapeHtml(product.name)}"
+                                class="relative z-10 w-full h-full object-cover transition-transform duration-500 ${isOut ? 'grayscale opacity-45' : 'group-hover:scale-[1.02]'}"
+                                onload="handleImageLoad(this, ${isOut})"
+                                onerror="handleImageError(this)"
+                            >
+
+                            <!-- Etiqueta cuadrada SIN STOCK en alto contraste -->
+                            ${isOut ? `
+                                <div class="absolute inset-0 z-20 flex items-center justify-center bg-white/40 p-4">
+                                    <div class="bg-black text-white border border-black px-5 py-2.5 text-xs font-mono font-bold uppercase tracking-[0.25em]">
+                                        SIN STOCK
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Información limpia: ÚNICAMENTE Nombre de Especie y Precio -->
+                        <div class="pt-4 pb-3 flex items-baseline justify-between gap-4 border-b border-black">
+                            <h3 class="text-sm sm:text-[15px] font-medium tracking-tight leading-snug ${isOut ? 'text-neutral-500 line-through' : 'text-black'}">
+                                ${escapeHtml(product.name)}
+                            </h3>
+                            <span class="text-sm sm:text-[15px] font-mono font-semibold whitespace-nowrap ${isOut ? 'text-neutral-400' : 'text-black'}">
+                                ${escapeHtml(product.price)}
+                            </span>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // =========================================================================
+        // 5. RENDERIZADO DE VISTA VENDEDOR (PANEL DE CONTROL)
+        // =========================================================================
+        function renderSellerPanel() {
+            const list = document.getElementById('seller-list');
+            if (!list) return;
+
+            const total = products.length;
+            const available = products.filter(p => p.inStock).length;
+            const outOfStock = total - available;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-available').textContent = available;
+            document.getElementById('stat-out').textContent = outOfStock;
+
+            list.innerHTML = products.map((product) => {
+                const isAvailable = product.inStock;
+                return `
+                    <div class="p-4 sm:p-6 bg-white flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                        
+                        <!-- Miniatura + Edición rápida de Nombre y Precio -->
+                        <div class="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+                            <div class="w-14 h-16 border border-black shrink-0 relative overflow-hidden placeholder-grid flex items-center justify-center">
+                                <span class="text-[8px] font-mono uppercase text-neutral-600">IMG</span>
+                                <img 
+                                    src="${escapeHtml(product.image)}" 
+                                    alt="${escapeHtml(product.name)}"
+                                    class="absolute inset-0 w-full h-full object-cover ${!isAvailable ? 'grayscale opacity-45' : ''}"
+                                    onerror="handleImageError(this)"
+                                >
+                            </div>
+
+                            <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">ESPECIE</label>
+                                    <input 
+                                        type="text" 
+                                        value="${escapeHtml(product.name)}"
+                                        onchange="updateProductField('${product.id}', 'name', this.value)"
+                                        class="w-full border border-black px-2.5 py-1.5 text-xs font-medium focus:outline-none focus:bg-[#F4F4F4]"
+                                    >
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] font-mono uppercase tracking-widest text-neutral-500 mb-1">PRECIO</label>
+                                    <input 
+                                        type="text" 
+                                        value="${escapeHtml(product.price)}"
+                                        onchange="updateProductField('${product.id}', 'price', this.value)"
+                                        class="w-full border border-black px-2.5 py-1.5 text-xs font-mono font-semibold focus:outline-none focus:bg-[#F4F4F4]"
+                                    >
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ruta de imagen + Botón cuadrado EN STOCK / SIN STOCK + Eliminar -->
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                            <div class="flex items-center border border-black bg-white">
+                                <span class="px-2.5 py-2 text-[10px] font-mono uppercase tracking-wider bg-[#F4F4F4] border-r border-black text-neutral-700 select-none">
+                                    RUTA
+                                </span>
+                                <input 
+                                    type="text" 
+                                    value="${escapeHtml(product.image)}"
+                                    onchange="updateProductField('${product.id}', 'image', this.value)"
+                                    class="px-2.5 py-2 text-xs font-mono w-full sm:w-48 focus:outline-none focus:bg-[#F4F4F4]"
+                                >
+                            </div>
+
+                            <!-- Botón cuadrado alternador de stock -->
+                            <button 
+                                type="button"
+                                onclick="toggleProductStock('${product.id}')"
+                                class="px-4 py-2 text-xs font-mono uppercase tracking-widest border border-black btn-square min-w-[140px] ${isAvailable ? 'bg-white text-black hover:bg-[#F4F4F4]' : 'bg-black text-white font-bold hover:bg-neutral-800'}"
+                            >
+                                ${isAvailable ? 'EN STOCK' : 'SIN STOCK'}
+                            </button>
+
+                            <button 
+                                type="button"
+                                onclick="deleteProduct('${product.id}')"
+                                title="Eliminar especie"
+                                class="border border-black px-3 py-2 text-xs font-mono hover:bg-black hover:text-white btn-square"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAll() {
+            renderClientCatalog();
+            renderSellerPanel();
+        }
+
+        // =========================================================================
+        // 6. ACCIONES DE VENDEDOR, NAVEGACIÓN Y EXPORTACIÓN PARA GITHUB PAGES
+        // =========================================================================
+        function switchView(view) {
+            currentView = view;
+            const clientSection = document.getElementById('client-view');
+            const sellerSection = document.getElementById('seller-view');
+            const btnClient = document.getElementById('btn-nav-client');
+            const btnSeller = document.getElementById('btn-nav-seller');
+
+            if (view === 'seller') {
+                clientSection.classList.add('hidden');
+                sellerSection.classList.remove('hidden');
+                btnClient.className = 'border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-white text-black hover:bg-black hover:text-white btn-square';
+                btnSeller.className = 'border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-black text-white btn-square';
+            } else {
+                sellerSection.classList.add('hidden');
+                clientSection.classList.remove('hidden');
+                btnClient.className = 'border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-black text-white btn-square';
+                btnSeller.className = 'border border-black px-4 py-2.5 text-xs font-mono uppercase tracking-widest bg-white text-black hover:bg-black hover:text-white btn-square';
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openSellerAccess() {
+            if (isSellerAuthenticated) {
+                switchView('seller');
+                return;
+            }
+            const modal = document.getElementById('pin-modal');
+            const input = document.getElementById('pin-input');
+            const err = document.getElementById('pin-error');
+            err.classList.add('hidden');
+            input.value = '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => input.focus(), 50);
+        }
+
+        function closePinModal() {
+            const modal = document.getElementById('pin-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function verifyPin(e) {
+            e.preventDefault();
+            const val = document.getElementById('pin-input').value.trim();
+            const err = document.getElementById('pin-error');
+
+            if (val === SELLER_PIN) {
+                isSellerAuthenticated = true;
+                closePinModal();
+                switchView('seller');
+                showToast('ACCESO VENDEDOR AUTORIZADO');
+            } else {
+                err.classList.remove('hidden');
+                document.getElementById('pin-input').value = '';
+                document.getElementById('pin-input').focus();
+            }
+        }
+
+        function toggleProductStock(productId) {
+            const updated = products.map(p => 
+                p.id === productId ? { ...p, inStock: !p.inStock } : p
+            );
+            saveProducts(updated);
+            const target = updated.find(p => p.id === productId);
+            if (target) {
+                showToast(target.name.toUpperCase() + ': ' + (target.inStock ? 'EN STOCK' : 'SIN STOCK'));
+            }
+        }
+
+        function updateProductField(productId, field, value) {
+            const cleanValue = value.trim();
+            if (!cleanValue) return;
+            const updated = products.map(p => 
+                p.id === productId ? { ...p, [field]: cleanValue } : p
+            );
+            saveProducts(updated);
+            showToast('CAMBIO GUARDADO');
+        }
+
+        function deleteProduct(productId) {
+            const updated = products.filter(p => p.id !== productId);
+            saveProducts(updated);
+            showToast('ESPECIE ELIMINADA');
+        }
+
+        function resetDefaultCatalog() {
+            saveProducts(JSON.parse(JSON.stringify(DEFAULT_PRODUCTS)));
+            showToast('CATÁLOGO RESTAURADO');
+        }
+
+        function openAddModal() {
+            const modal = document.getElementById('add-modal');
+            document.getElementById('add-product-form').reset();
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('add-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function handleAddProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-name').value.trim();
+            let price = document.getElementById('new-price').value.trim();
+            const category = document.getElementById('new-size').value;
+            const image = document.getElementById('new-image').value.trim();
+
+            if (!name || !price || !image) return;
+            if (!price.startsWith('$')) price = '$' + price;
+
+            const newProduct = {
+                id: 'prod-' + Date.now(),
+                name,
+                price,
+                category,
+                image,
+                inStock: true
+            };
+
+            saveProducts([...products, newProduct]);
+            closeAddModal();
+            showToast('NUEVA ESPECIE AGREGADA');
+        }
+
+        // Genera una copia completa del HTML actual con el inventario grabado en el código fuente
+        function downloadHtmlFile() {
+            const docClone = document.documentElement.cloneNode(true);
+            
+            // Asegurar que la exportación abra en la vista del cliente y con modales cerrados
+            const clientSec = docClone.querySelector('#client-view');
+            const sellerSec = docClone.querySelector('#seller-view');
+            if (clientSec) clientSec.classList.remove('hidden');
+            if (sellerSec) sellerSec.classList.add('hidden');
+
+            const pinModal = docClone.querySelector('#pin-modal');
+            const addModal = docClone.querySelector('#add-modal');
+            if (pinModal) { pinModal.classList.add('hidden'); pinModal.classList.remove('flex'); }
+            if (addModal) { addModal.classList.add('hidden'); addModal.classList.remove('flex'); }
+
+            const serializedProducts = JSON.stringify(products, null, 12);
+            let htmlString = '<!DOCTYPE html>\n' + docClone.outerHTML;
+
+            // Reemplazar el arreglo DEFAULT_PRODUCTS dentro del script exportado
+            htmlString = htmlString.replace(
+                /const DEFAULT_PRODUCTS = \[[\s\S]*?\];/,
+                `const DEFAULT_PRODUCTS = ${serializedProducts};`
+            );
+
+            const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'index.html';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('INDEX.HTML DESCARGADO');
+        }
+
+        // =========================================================================
+        // 7. UTILIDADES E INICIALIZACIÓN SEGURA
+        // =========================================================================
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            if (!toast) return;
+            toast.textContent = msg;
+            toast.classList.remove('hidden');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 2600);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            products = loadProducts();
+            renderAll();
+        });
+    </script>
+</body>
+</html>
